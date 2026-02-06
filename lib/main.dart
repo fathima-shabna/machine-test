@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart';
+import 'package:get/get.dart';
+import 'splash_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -10,11 +11,15 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       title: 'Noviindus Test',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true, primarySwatch: Colors.green),
-      home: const LoginScreen(),
+      theme: ThemeData(
+        useMaterial3: true,
+        primarySwatch: Colors.green,
+        primaryColor: const Color(0xFF006837),
+      ),
+      home: const SplashScreen(),
     );
   }
 }

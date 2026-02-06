@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'controllers/booking_controller.dart';
 import 'booking_receipt_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -9,11 +12,44 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  final BookingController _bookingController = Get.put(BookingController());
+
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _executiveController = TextEditingController();
+  final TextEditingController _discountController = TextEditingController(
+    text: '0',
+  );
+  final TextEditingController _advanceController = TextEditingController(
+    text: '0',
+  );
+  final TextEditingController _balanceController = TextEditingController(
+    text: '0',
+  );
+  final TextEditingController _dateController = TextEditingController();
+
   String? _paymentOption = 'Cash';
   int _maleCount = 0;
   int _femaleCount = 0;
+  int? _selectedBranchId;
+  int? _selectedTreatmentId;
+  DateTime? _selectedDate;
+  String _selectedHour = '01';
+  String _selectedMinute = '00';
+
+  @override
+  void initState() {
+    super.initState();
+    _dateController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
+    _selectedDate = DateTime.now();
+  }
 
   void _showAddTreatmentDialog(BuildContext context) {
+    _maleCount = 0;
+    _femaleCount = 0;
+    _selectedTreatmentId = null;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -42,7 +78,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _buildDropdown('Choose preferred treatment'),
+                        Obx(
+                          () => _buildDialogDropdown(
+                            'Choose preferred treatment',
+                            _bookingController.treatments,
+                            _selectedTreatmentId,
+                            (val) => setDialogState(
+                              () => _selectedTreatmentId = val,
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 24),
                         const Text(
                           'Add Patients',
@@ -62,7 +107,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         }),
                         const SizedBox(height: 32),
                         ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () {
+                            if (_selectedTreatmentId != null) {
+                              _bookingController.selectedTreatments.add(
+                                _selectedTreatmentId!,
+                              );
+                              _bookingController.maleTreatments.add(_maleCount);
+                              _bookingController.femaleTreatments.add(
+                                _femaleCount,
+                              );
+                              Navigator.pop(context);
+                            } else {
+                              Get.snackbar(
+                                'Error',
+                                'Please select a treatment',
+                              );
+                            }
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF006837),
                             foregroundColor: Colors.white,
@@ -88,6 +149,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildDialogDropdown(
+    String hint,
+    List<dynamic> items,
+    int? value,
+    Function(int?) onChanged,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0x66000000)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          isExpanded: true,
+          hint: Text(
+            hint,
+            style: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 14),
+          ),
+          value: value,
+          icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF006837)),
+          items: items.map((item) {
+            return DropdownMenuItem<int>(
+              value: item.id,
+              child: Text(item.name, style: const TextStyle(fontSize: 14)),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
 
@@ -170,40 +265,109 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 24),
                     _buildLabel('Name'),
-                    _buildTextField('Enter your full name'),
+                    _buildTextField('Enter your full name', _nameController),
+                    _buildLabel('Executive'),
+                    _buildTextField(
+                      'Enter executive name',
+                      _executiveController,
+                    ),
                     _buildLabel('Whatsapp Number'),
-                    _buildTextField('Enter your Whatsapp number'),
+                    _buildTextField(
+                      'Enter your Whatsapp number',
+                      _phoneController,
+                      keyboardType: TextInputType.phone,
+                    ),
                     _buildLabel('Address'),
-                    _buildTextField('Enter your full address'),
-                    _buildLabel('Location'),
-                    _buildDropdown('Choose your location'),
+                    _buildTextField(
+                      'Enter your full address',
+                      _addressController,
+                    ),
                     _buildLabel('Branch'),
-                    _buildDropdown('Select the branch'),
+                    Obx(
+                      () => _buildDropdown(
+                        'Select the branch',
+                        _bookingController.branches,
+                        _selectedBranchId,
+                        (val) => setState(() => _selectedBranchId = val),
+                      ),
+                    ),
                     _buildLabel('Treatments'),
-                    _buildTreatmentCard(),
+                    Obx(
+                      () => Column(
+                        children: List.generate(
+                          _bookingController.selectedTreatments.length,
+                          (index) {
+                            final tId =
+                                _bookingController.selectedTreatments[index];
+                            final treatment = _bookingController.treatments
+                                .firstWhere((t) => t.id == tId);
+                            return _buildAddedTreatmentCard(
+                              index + 1,
+                              treatment.name,
+                              _bookingController.maleTreatments[index],
+                              _bookingController.femaleTreatments[index],
+                              () {
+                                _bookingController.selectedTreatments.removeAt(
+                                  index,
+                                );
+                                _bookingController.maleTreatments.removeAt(
+                                  index,
+                                );
+                                _bookingController.femaleTreatments.removeAt(
+                                  index,
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     _buildAddTreatmentButton(),
                     _buildLabel('Total Amount'),
-                    _buildTextField(''),
+                    _buildTextField(
+                      '',
+                      TextEditingController(),
+                    ), // This should be calculated
                     _buildLabel('Discount Amount'),
-                    _buildTextField(''),
+                    _buildTextField('', _discountController),
                     _buildLabel('Payment Option'),
                     _buildPaymentOptions(),
                     _buildLabel('Advance Amount'),
-                    _buildTextField(''),
+                    _buildTextField('', _advanceController),
                     _buildLabel('Balance Amount'),
-                    _buildTextField(''),
+                    _buildTextField('', _balanceController),
                     _buildLabel('Treatment Date'),
                     _buildDatePickerField(),
                     _buildLabel('Treatment Time'),
                     Row(
                       children: [
-                        Expanded(child: _buildTimeDropdown('Hour')),
+                        Expanded(
+                          child: _buildTimeDropdown(
+                            'Hour',
+                            List.generate(
+                              24,
+                              (i) => (i + 1).toString().padLeft(2, '0'),
+                            ),
+                            _selectedHour,
+                            (v) => setState(() => _selectedHour = v!),
+                          ),
+                        ),
                         const SizedBox(width: 12),
-                        Expanded(child: _buildTimeDropdown('Minutes')),
+                        Expanded(
+                          child: _buildTimeDropdown(
+                            'Minutes',
+                            List.generate(
+                              60,
+                              (i) => i.toString().padLeft(2, '0'),
+                            ),
+                            _selectedMinute,
+                            (v) => setState(() => _selectedMinute = v!),
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 100), // Space for save button
+                    const SizedBox(height: 100),
                   ],
                 ),
               ),
@@ -211,32 +375,67 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const BookingReceiptScreen(),
+      bottomNavigationBar: Obx(
+        () => Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ElevatedButton(
+            onPressed: _bookingController.isLoading.value ? null : _handleSave,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF006837),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 56),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF006837),
-            foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 56),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
             ),
-          ),
-          child: const Text(
-            'Save',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            child: _bookingController.isLoading.value
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text(
+                    'Save',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
           ),
         ),
       ),
     );
+  }
+
+  void _handleSave() async {
+    if (_nameController.text.isEmpty ||
+        _selectedBranchId == null ||
+        _bookingController.selectedTreatments.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Please fill all required fields and add at least one treatment',
+      );
+      return;
+    }
+
+    final success = await _bookingController.registerPatient(
+      name: _nameController.text,
+      executive: _executiveController.text,
+      payment: _paymentOption ?? 'Cash',
+      phone: _phoneController.text,
+      address: _addressController.text,
+      total: 0.0, // Should be calculated
+      discount: double.tryParse(_discountController.text) ?? 0.0,
+      advance: double.tryParse(_advanceController.text) ?? 0.0,
+      balance: double.tryParse(_balanceController.text) ?? 0.0,
+      dateTime: DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        int.parse(_selectedHour),
+        int.parse(_selectedMinute),
+      ),
+      branchId: _selectedBranchId!,
+    );
+
+    if (success) {
+      Get.to(() => const BookingReceiptScreen());
+    } else {
+      Get.snackbar('Error', 'Failed to register patient');
+    }
   }
 
   Widget _buildAppBar(BuildContext context) {
@@ -289,8 +488,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildTextField(String hint) {
+  Widget _buildTextField(
+    String hint,
+    TextEditingController controller, {
+    TextInputType keyboardType = TextInputType.text,
+  }) {
     return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 14),
@@ -298,7 +503,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         fillColor: const Color(0xFFF5F5F5),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: Color(0x66000000)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0x66000000)),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -308,30 +517,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildDropdown(String hint) {
+  Widget _buildDropdown(
+    String hint,
+    List<dynamic> items,
+    int? value,
+    Function(int?) onChanged,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         color: const Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0x66000000)),
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
+        child: DropdownButton<int>(
           isExpanded: true,
           hint: Text(
             hint,
             style: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 14),
           ),
+          value: value,
           icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF006837)),
-          items: [],
-          onChanged: (value) {},
+          items: items.map((item) {
+            return DropdownMenuItem<int>(
+              value: item.id,
+              child: Text(item.name, style: const TextStyle(fontSize: 14)),
+            );
+          }).toList(),
+          onChanged: onChanged,
         ),
       ),
     );
   }
 
-  Widget _buildTreatmentCard() {
+  Widget _buildAddedTreatmentCard(
+    int index,
+    String name,
+    int male,
+    int female,
+    VoidCallback onDelete,
+  ) {
     return Container(
+      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFF2F2F2),
@@ -341,19 +569,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
         children: [
           Row(
             children: [
-              const Text(
-                '1. ',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Text(
+                '$index. ',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Couple Combo package i..',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               IconButton(
-                onPressed: () {},
+                onPressed: onDelete,
                 icon: const Icon(Icons.cancel, color: Color(0xFFEF9A9A)),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -365,13 +599,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             children: [
               const Text('Male', style: TextStyle(color: Color(0xFF006837))),
               const SizedBox(width: 8),
-              _buildCountBox('2'),
+              _buildCountBox(male.toString()),
               const SizedBox(width: 16),
               const Text('Female', style: TextStyle(color: Color(0xFF006837))),
               const SizedBox(width: 8),
-              _buildCountBox('2'),
-              const Spacer(),
-              const Icon(Icons.edit, color: Color(0xFF006837), size: 20),
+              _buildCountBox(female.toString()),
             ],
           ),
         ],
@@ -394,8 +626,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return ElevatedButton(
       onPressed: () => _showAddTreatmentDialog(context),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF006837), // Primary Green
-        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFFE8F5E9),
+        foregroundColor: const Color(0xFF006837),
         minimumSize: const Size(double.infinity, 50),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         elevation: 0,
@@ -405,7 +637,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         children: [
           Icon(Icons.add, size: 20),
           SizedBox(width: 8),
-          Text('Add Treatments', style: TextStyle(fontWeight: FontWeight.w500)),
+          Text('Add Treatments', style: TextStyle(fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -442,7 +674,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _buildDatePickerField() {
     return TextField(
+      controller: _dateController,
       readOnly: true,
+      onTap: () async {
+        final date = await showDatePicker(
+          context: context,
+          initialDate: _selectedDate ?? DateTime.now(),
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2100),
+        );
+        if (date != null) {
+          setState(() {
+            _selectedDate = date;
+            _dateController.text = DateFormat('dd/MM/yyyy').format(date);
+          });
+        }
+      },
       decoration: InputDecoration(
         filled: true,
         fillColor: const Color(0xFFF5F5F5),
@@ -467,7 +714,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildTimeDropdown(String label) {
+  Widget _buildTimeDropdown(
+    String label,
+    List<String> items,
+    String value,
+    Function(String?) onChanged,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
@@ -478,13 +730,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           isExpanded: true,
-          hint: Text(
-            label,
-            style: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 14),
-          ),
+          value: value,
           icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF006837)),
-          items: [],
-          onChanged: (value) {},
+          items: items
+              .map((i) => DropdownMenuItem(value: i, child: Text(i)))
+              .toList(),
+          onChanged: onChanged,
         ),
       ),
     );

@@ -1,40 +1,83 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'controllers/patient_controller.dart';
+import 'models/patient_model.dart';
 import 'register_screen.dart';
 
 class TreatmentListScreen extends StatelessWidget {
-  const TreatmentListScreen({super.key});
+  TreatmentListScreen({super.key});
+
+  final PatientController _patientController = Get.put(PatientController());
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
-            Column(
-              children: [
-                _buildAppBar(context),
-                _buildSearchAndSort(),
-                const Divider(thickness: 1, height: 1),
-                Expanded(
-                  child: ListView.builder(
+            _buildAppBar(context),
+            _buildSearchAndSort(),
+            const Divider(thickness: 1, height: 1),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _patientController.refreshPatients,
+                color: const Color(0xFF006837),
+                child: Obx(() {
+                  if (_patientController.isLoading.value &&
+                      _patientController.patients.isEmpty) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF006837),
+                      ),
+                    );
+                  }
+
+                  if (_patientController.isEmpty.value) {
+                    return ListView(
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.2,
+                        ),
+                        Center(
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.person_off_outlined,
+                                size: 100,
+                                color: Colors.grey[300],
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'No patients found',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return ListView.builder(
                     padding: const EdgeInsets.only(bottom: 100),
-                    itemCount: 4,
+                    itemCount: _patientController.patients.length,
                     itemBuilder: (context, index) {
-                      return _buildTreatmentCard(index + 1);
+                      final patient = _patientController.patients[index];
+                      return _buildTreatmentCard(patient, index + 1);
                     },
-                  ),
-                ),
-              ],
-            ),
-            Positioned(
-              bottom: 24,
-              left: 24,
-              right: 24,
-              child: _buildRegisterButton(context),
+                  );
+                }),
+              ),
             ),
           ],
         ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: _buildRegisterButton(context),
       ),
     );
   }
@@ -171,7 +214,15 @@ class TreatmentListScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTreatmentCard(int index) {
+  Widget _buildTreatmentCard(PatientModel patient, int index) {
+    DateTime? dateTime = DateTime.tryParse(patient.dateNdTime);
+    String formattedDate = dateTime != null
+        ? DateFormat('dd/MM/yyyy').format(dateTime)
+        : '';
+    String treatmentName = patient.patientDetails.isNotEmpty
+        ? patient.patientDetails.first.treatmentName
+        : 'No treatment';
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -186,7 +237,7 @@ class TreatmentListScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$index. Vikram Singh',
+                  '$index. ${patient.name}',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -194,13 +245,15 @@ class TreatmentListScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Couple Combo Package (Rejuven...',
-                  style: TextStyle(
+                Text(
+                  treatmentName,
+                  style: const TextStyle(
                     fontSize: 16,
                     color: Color(0xFF006837),
                     fontWeight: FontWeight.w500,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -211,9 +264,9 @@ class TreatmentListScreen extends StatelessWidget {
                       color: Colors.red,
                     ),
                     const SizedBox(width: 4),
-                    const Text(
-                      '31/01/2024',
-                      style: TextStyle(color: Colors.grey),
+                    Text(
+                      formattedDate,
+                      style: const TextStyle(color: Colors.grey),
                     ),
                     const SizedBox(width: 16),
                     const Icon(
@@ -222,7 +275,12 @@ class TreatmentListScreen extends StatelessWidget {
                       color: Colors.orange,
                     ),
                     const SizedBox(width: 4),
-                    const Text('Jithesh', style: TextStyle(color: Colors.grey)),
+                    Text(
+                      patient.user,
+                      style: const TextStyle(color: Colors.grey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ],
