@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'controllers/patient_controller.dart';
 import 'models/patient_model.dart';
 import 'register_screen.dart';
 
 class TreatmentListScreen extends StatelessWidget {
-  TreatmentListScreen({super.key});
-
-  final PatientController _patientController = Get.put(PatientController());
+  const TreatmentListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -21,54 +19,58 @@ class TreatmentListScreen extends StatelessWidget {
             _buildSearchAndSort(),
             const Divider(thickness: 1, height: 1),
             Expanded(
-              child: RefreshIndicator(
-                onRefresh: _patientController.refreshPatients,
-                color: const Color(0xFF006837),
-                child: Obx(() {
-                  if (_patientController.isLoading.value &&
-                      _patientController.patients.isEmpty) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF006837),
-                      ),
-                    );
-                  }
-
-                  if (_patientController.isEmpty.value) {
-                    return ListView(
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.2,
-                        ),
-                        Center(
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.person_off_outlined,
-                                size: 100,
-                                color: Colors.grey[300],
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'No patients found',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ],
+              child: Consumer<PatientController>(
+                builder: (context, patientController, _) => RefreshIndicator(
+                  onRefresh: patientController.refreshPatients,
+                  color: const Color(0xFF006837),
+                  child: Builder(
+                    builder: (context) {
+                      if (patientController.isLoading &&
+                          patientController.patients.isEmpty) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF006837),
                           ),
-                        ),
-                      ],
-                    );
-                  }
+                        );
+                      }
 
-                  return ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 100),
-                    itemCount: _patientController.patients.length,
-                    itemBuilder: (context, index) {
-                      final patient = _patientController.patients[index];
-                      return _buildTreatmentCard(patient, index + 1);
+                      if (patientController.isEmpty) {
+                        return ListView(
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.2,
+                            ),
+                            Center(
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.person_off_outlined,
+                                    size: 100,
+                                    color: Colors.grey[300],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'No patients found',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 100),
+                        itemCount: patientController.patients.length,
+                        itemBuilder: (context, index) {
+                          final patient = patientController.patients[index];
+                          return _buildTreatmentCard(patient, index + 1);
+                        },
+                      );
                     },
-                  );
-                }),
+                  ),
+                ),
               ),
             ),
           ],

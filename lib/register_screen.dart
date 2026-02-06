@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'controllers/booking_controller.dart';
-import 'booking_receipt_screen.dart';
+import 'services/pdf_service.dart';
 import 'models/booking_details.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -13,8 +13,6 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final BookingController _bookingController = Get.put(BookingController());
-
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
@@ -91,15 +89,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Obx(
-                          () => _buildDialogDropdown(
-                            'Choose preferred treatment',
-                            _bookingController.treatments,
-                            _selectedTreatmentId,
-                            (val) => setDialogState(
-                              () => _selectedTreatmentId = val,
-                            ),
-                          ),
+                        Consumer<BookingController>(
+                          builder: (context, bookingController, _) =>
+                              _buildDialogDropdown(
+                                'Choose preferred treatment',
+                                bookingController.treatments,
+                                _selectedTreatmentId,
+                                (val) => setDialogState(
+                                  () => _selectedTreatmentId = val,
+                                ),
+                              ),
                         ),
                         const SizedBox(height: 24),
                         const Text(
@@ -122,19 +121,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ElevatedButton(
                           onPressed: () {
                             if (_selectedTreatmentId != null) {
-                              _bookingController.selectedTreatments.add(
+                              final bookingController = context
+                                  .read<BookingController>();
+                              bookingController.addTreatment(
                                 _selectedTreatmentId!,
-                              );
-                              _bookingController.maleTreatments.add(_maleCount);
-                              _bookingController.femaleTreatments.add(
+                                _maleCount,
                                 _femaleCount,
                               );
                               _updateCalculatedValues();
                               Navigator.pop(context);
                             } else {
-                              Get.snackbar(
-                                'Error',
-                                'Please select a treatment',
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please select a treatment'),
+                                ),
                               );
                             }
                           },
@@ -297,39 +297,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       _addressController,
                     ),
                     _buildLabel('Branch'),
-                    Obx(
-                      () => _buildDropdown(
-                        'Select the branch',
-                        _bookingController.branches,
-                        _selectedBranchId,
-                        (val) => setState(() => _selectedBranchId = val),
-                      ),
+                    Consumer<BookingController>(
+                      builder: (context, bookingController, _) =>
+                          _buildDropdown(
+                            'Select the branch',
+                            bookingController.branches,
+                            _selectedBranchId,
+                            (val) => setState(() => _selectedBranchId = val),
+                          ),
                     ),
                     _buildLabel('Treatments'),
-                    Obx(
-                      () => Column(
+                    Consumer<BookingController>(
+                      builder: (context, bookingController, _) => Column(
                         children: List.generate(
-                          _bookingController.selectedTreatments.length,
+                          bookingController.selectedTreatments.length,
                           (index) {
                             final tId =
-                                _bookingController.selectedTreatments[index];
-                            final treatment = _bookingController.treatments
+                                bookingController.selectedTreatments[index];
+                            final treatment = bookingController.treatments
                                 .firstWhere((t) => t.id == tId);
                             return _buildAddedTreatmentCard(
                               index + 1,
                               treatment.name,
-                              _bookingController.maleTreatments[index],
-                              _bookingController.femaleTreatments[index],
+                              bookingController.maleTreatments[index],
+                              bookingController.femaleTreatments[index],
                               () {
-                                _bookingController.selectedTreatments.removeAt(
-                                  index,
-                                );
-                                _bookingController.maleTreatments.removeAt(
-                                  index,
-                                );
-                                _bookingController.femaleTreatments.removeAt(
-                                  index,
-                                );
+                                bookingController.removeTreatmentAt(index);
                                 _updateCalculatedValues();
                               },
                             );
@@ -387,11 +380,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: Obx(
-        () => Padding(
+      bottomNavigationBar: Consumer<BookingController>(
+        builder: (context, bookingController, _) => Padding(
           padding: const EdgeInsets.all(16.0),
           child: ElevatedButton(
-            onPressed: _bookingController.isLoading.value ? null : _handleSave,
+            onPressed: bookingController.isLoading ? null : _handleSave,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF006837),
               foregroundColor: Colors.white,
@@ -400,7 +393,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: _bookingController.isLoading.value
+            child: bookingController.isLoading
                 ? const CircularProgressIndicator(color: Colors.white)
                 : const Text(
                     'Save',
@@ -414,15 +407,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _updateCalculatedValues() {
     double total = 0;
-    for (int i = 0; i < _bookingController.selectedTreatments.length; i++) {
-      final tId = _bookingController.selectedTreatments[i];
-      final treatment = _bookingController.treatments.firstWhere(
+    final bookingController = context.read<BookingController>();
+    for (int i = 0; i < bookingController.selectedTreatments.length; i++) {
+      final tId = bookingController.selectedTreatments[i];
+      final treatment = bookingController.treatments.firstWhere(
         (t) => t.id == tId,
       );
       final price = double.tryParse(treatment.price) ?? 0.0;
       final patientCount =
-          _bookingController.maleTreatments[i] +
-          _bookingController.femaleTreatments[i];
+          bookingController.maleTreatments[i] +
+          bookingController.femaleTreatments[i];
       total += price * patientCount;
     }
     _totalController.text = total.toStringAsFixed(0);
@@ -434,17 +428,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _handleSave() async {
+    final bookingController = context.read<BookingController>();
     if (_nameController.text.isEmpty ||
         _selectedBranchId == null ||
-        _bookingController.selectedTreatments.isEmpty) {
-      Get.snackbar(
-        'Error',
-        'Please fill all required fields and add at least one treatment',
+        bookingController.selectedTreatments.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please fill all required fields and add at least one treatment',
+          ),
+        ),
       );
       return;
     }
 
-    final success = await _bookingController.registerPatient(
+    final success = await bookingController.registerPatient(
       name: _nameController.text,
       executive: _executiveController.text,
       payment: _paymentOption ?? 'Cash',
@@ -464,6 +462,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
       branchId: _selectedBranchId!,
     );
 
+    if (!success) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to register patient')),
+        );
+      }
+      return;
+    }
+
     final details = BookingDetails(
       patientName: _nameController.text,
       address: _addressController.text,
@@ -472,16 +479,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       treatmentDate: _selectedDate!,
       treatmentTime:
           '$_selectedHour:$_selectedMinute ${_selectedHour.compareTo('12') >= 0 ? 'pm' : 'am'}',
-      treatments: List.generate(_bookingController.selectedTreatments.length, (
+      treatments: List.generate(bookingController.selectedTreatments.length, (
         i,
       ) {
-        final tId = _bookingController.selectedTreatments[i];
-        final treatment = _bookingController.treatments.firstWhere(
+        final tId = bookingController.selectedTreatments[i];
+        final treatment = bookingController.treatments.firstWhere(
           (t) => t.id == tId,
         );
         final price = double.tryParse(treatment.price) ?? 0.0;
-        final male = _bookingController.maleTreatments[i];
-        final female = _bookingController.femaleTreatments[i];
+        final male = bookingController.maleTreatments[i];
+        final female = bookingController.femaleTreatments[i];
         return SelectedTreatmentDetails(
           name: treatment.name,
           price: price,
@@ -496,7 +503,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
       balance: double.tryParse(_balanceController.text) ?? 0.0,
     );
 
-    Get.to(() => BookingReceiptScreen(details: details));
+    if (mounted) {
+      // Generate and Print PDF
+      await PdfService.generateAndPrint(details);
+
+      // Clear booking state and go back
+      if (mounted) {
+        bookingController.clearBookingData();
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration successful and receipt generated'),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildAppBar(BuildContext context) {

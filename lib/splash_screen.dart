@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -19,7 +18,12 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void _navigateToLogin() async {
     await Future.delayed(const Duration(seconds: 3));
-    Get.off(() => LoginScreen());
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+      );
+    }
   }
 
   @override

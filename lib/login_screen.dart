@@ -1,12 +1,11 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 import 'controllers/auth_controller.dart';
 
 class LoginScreen extends StatelessWidget {
   LoginScreen({super.key});
 
-  final AuthController _authController = Get.put(AuthController());
   final TextEditingController _usernameController = TextEditingController(
     text: 'test_user',
   );
@@ -18,8 +17,8 @@ class LoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Obx(
-        () => Stack(
+      body: Consumer<AuthController>(
+        builder: (context, authController, _) => Stack(
           children: [
             SingleChildScrollView(
               child: Column(
@@ -77,8 +76,8 @@ class LoginScreen extends StatelessWidget {
                           controller: _usernameController,
                           decoration: InputDecoration(
                             hintText: 'Enter your email',
-                            hintStyle: TextStyle(
-                              color: const Color(0x66000000),
+                            hintStyle: const TextStyle(
+                              color: Color(0x66000000),
                               fontSize: 15,
                             ),
                             filled: true,
@@ -118,8 +117,8 @@ class LoginScreen extends StatelessWidget {
                           obscureText: true,
                           decoration: InputDecoration(
                             hintText: 'Enter password',
-                            hintStyle: TextStyle(
-                              color: const Color(0x66000000),
+                            hintStyle: const TextStyle(
+                              color: Color(0x66000000),
                               fontSize: 15,
                             ),
                             filled: true,
@@ -150,7 +149,8 @@ class LoginScreen extends StatelessWidget {
                           height: 58,
                           child: ElevatedButton(
                             onPressed: () {
-                              _authController.login(
+                              authController.login(
+                                context,
                                 _usernameController.text,
                                 _passwordController.text,
                               );
@@ -216,7 +216,7 @@ class LoginScreen extends StatelessWidget {
                 ],
               ),
             ),
-            if (_authController.isLoading.value)
+            if (authController.isLoading)
               Container(
                 color: Colors.black26,
                 child: const Center(

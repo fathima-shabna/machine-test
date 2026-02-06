@@ -1,34 +1,36 @@
-import 'package:get/get.dart';
+import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/patient_model.dart';
 
-class PatientController extends GetxController {
+class PatientController extends ChangeNotifier {
   final ApiService _apiService = ApiService();
-  var patients = <PatientModel>[].obs;
-  var isLoading = false.obs;
-  var isEmpty = false.obs;
+  List<PatientModel> _patients = [];
+  List<PatientModel> get patients => _patients;
 
-  @override
-  void onInit() {
-    super.onInit();
-    fetchPatients();
-  }
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  bool _isEmpty = false;
+  bool get isEmpty => _isEmpty;
 
   Future<void> fetchPatients() async {
     try {
-      isLoading.value = true;
+      _isLoading = true;
+      notifyListeners();
+
       final response = await _apiService.get('/PatientList');
       print(response.data);
       final patientListResponse = PatientListResponse.fromJson(response.data);
 
       if (patientListResponse.status) {
-        patients.value = patientListResponse.patient;
-        isEmpty.value = patients.isEmpty;
+        _patients = patientListResponse.patient;
+        _isEmpty = _patients.isEmpty;
       }
     } catch (e) {
       // Handle error
     } finally {
-      isLoading.value = false;
+      _isLoading = false;
+      notifyListeners();
     }
   }
 

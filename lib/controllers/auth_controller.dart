@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../models/login_model.dart';
 import '../treatment_list_screen.dart';
 
-class AuthController extends GetxController {
+class AuthController extends ChangeNotifier {
   final ApiService _apiService = ApiService();
-  var isLoading = false.obs;
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
 
-  Future<void> login(String username, String password) async {
+  Future<void> login(
+    BuildContext context,
+    String username,
+    String password,
+  ) async {
     try {
-      isLoading.value = true;
+      _isLoading = true;
+      notifyListeners();
+
       final response = await _apiService.post(
         '/Login',
         data: {'username': username, 'password': password},
@@ -23,32 +29,41 @@ class AuthController extends GetxController {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('access_token', loginResponse.token ?? '');
 
-        Get.offAll(() => TreatmentListScreen());
+        if (context.mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => TreatmentListScreen()),
+            (route) => false,
+          );
+        }
       } else {
-        Get.snackbar(
-          'Error',
-          loginResponse.message,
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withOpacity(0.8),
-          colorText: Colors.white,
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(loginResponse.message),
+              backgroundColor: Colors.red.withOpacity(0.8),
+            ),
+          );
+        }
       }
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Something went wrong. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.withOpacity(0.8),
-        colorText: Colors.white,
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Something went wrong. Please try again.'),
+            backgroundColor: Colors.red.withOpacity(0.8),
+          ),
+        );
+      }
     } finally {
-      isLoading.value = false;
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('access_token');
-    // Navigate to Login screen (needs to be implemented in main or as a named route)
+    notifyListeners();
   }
 }
