@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'models/booking_details.dart';
 
 class BookingReceiptScreen extends StatelessWidget {
-  const BookingReceiptScreen({super.key});
+  final BookingDetails details;
+  const BookingReceiptScreen({super.key, required this.details});
 
   double _s(BuildContext context, double baseSize) {
     double screenWidth = MediaQuery.of(context).size.width;
 
     double scale = screenWidth / 400;
-  
+
     return (baseSize * scale).clamp(baseSize * 0.7, baseSize * 1.2);
   }
 
@@ -147,17 +150,25 @@ class BookingReceiptScreen extends StatelessWidget {
             if (isNarrow)
               Column(
                 children: [
-                  _buildDetailRow(context, 'Name', 'Salih T'),
-                  _buildDetailRow(context, 'Address', 'Nadakkave, Kozhikkode'),
-                  _buildDetailRow(context, 'WhatsApp Number', '+91 987654321'),
+                  _buildDetailRow(context, 'Name', details.patientName),
+                  _buildDetailRow(context, 'Address', details.address),
+                  _buildDetailRow(context, 'WhatsApp Number', details.phone),
                   const SizedBox(height: 10),
                   _buildDetailRow(
                     context,
                     'Booked On',
-                    '31/01/2024   |   12:12pm',
+                    '${DateFormat('dd/MM/yyyy').format(details.bookedOn)}   |   ${DateFormat('hh:mm a').format(details.bookedOn).toLowerCase()}',
                   ),
-                  _buildDetailRow(context, 'Treatment Date', '21/02/2024'),
-                  _buildDetailRow(context, 'Treatment Time', '11:00 am'),
+                  _buildDetailRow(
+                    context,
+                    'Treatment Date',
+                    DateFormat('dd/MM/yyyy').format(details.treatmentDate),
+                  ),
+                  _buildDetailRow(
+                    context,
+                    'Treatment Time',
+                    details.treatmentTime,
+                  ),
                 ],
               )
             else
@@ -168,16 +179,12 @@ class BookingReceiptScreen extends StatelessWidget {
                     flex: 5,
                     child: Column(
                       children: [
-                        _buildDetailRow(context, 'Name', 'Salih T'),
-                        _buildDetailRow(
-                          context,
-                          'Address',
-                          'Nadakkave, Kozhikkode',
-                        ),
+                        _buildDetailRow(context, 'Name', details.patientName),
+                        _buildDetailRow(context, 'Address', details.address),
                         _buildDetailRow(
                           context,
                           'WhatsApp Number',
-                          '+91 987654321',
+                          details.phone,
                         ),
                       ],
                     ),
@@ -190,14 +197,20 @@ class BookingReceiptScreen extends StatelessWidget {
                         _buildDetailRow(
                           context,
                           'Booked On',
-                          '31/01/2024   |   12:12pm',
+                          '${DateFormat('dd/MM/yyyy').format(details.bookedOn)}   |   ${DateFormat('hh:mm a').format(details.bookedOn).toLowerCase()}',
                         ),
                         _buildDetailRow(
                           context,
                           'Treatment Date',
-                          '21/02/2024',
+                          DateFormat(
+                            'dd/MM/yyyy',
+                          ).format(details.treatmentDate),
                         ),
-                        _buildDetailRow(context, 'Treatment Time', '11:00 am'),
+                        _buildDetailRow(
+                          context,
+                          'Treatment Time',
+                          details.treatmentTime,
+                        ),
                       ],
                     ),
                   ),
@@ -283,16 +296,16 @@ class BookingReceiptScreen extends StatelessWidget {
             ],
           ),
         ),
-        _buildTreatmentRow(context, 'Panchakarma', '₹230', '4', '4', '₹2,540'),
-        _buildTreatmentRow(
-          context,
-          'Njavara Kizhi Treatment',
-          '₹230',
-          '4',
-          '4',
-          '₹2,540',
+        ...details.treatments.map(
+          (t) => _buildTreatmentRow(
+            context,
+            t.name,
+            '₹${t.price.toStringAsFixed(0)}',
+            t.male.toString(),
+            t.female.toString(),
+            '₹${t.total.toStringAsFixed(0)}',
+          ),
         ),
-        _buildTreatmentRow(context, 'Panchakarma', '₹230', '4', '6', '₹2,540'),
         const SizedBox(height: 10),
       ],
     );
@@ -342,9 +355,21 @@ class BookingReceiptScreen extends StatelessWidget {
         ),
         child: Column(
           children: [
-            _buildSummaryRow(context, 'Total Amount', '₹7,620'),
-            _buildSummaryRow(context, 'Discount', '₹500'),
-            _buildSummaryRow(context, 'Advance', '₹1,200'),
+            _buildSummaryRow(
+              context,
+              'Total Amount',
+              '₹${details.totalAmount.toStringAsFixed(0)}',
+            ),
+            _buildSummaryRow(
+              context,
+              'Discount',
+              '₹${details.discount.toStringAsFixed(0)}',
+            ),
+            _buildSummaryRow(
+              context,
+              'Advance',
+              '₹${details.advance.toStringAsFixed(0)}',
+            ),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0),
               child: _DashedDivider(),
@@ -352,7 +377,7 @@ class BookingReceiptScreen extends StatelessWidget {
             _buildSummaryRow(
               context,
               'Balance',
-              '₹5,920',
+              '₹${details.balance.toStringAsFixed(0)}',
               isBold: true,
               fontSize: 16,
             ),
@@ -458,7 +483,6 @@ class _HeaderCell extends StatelessWidget {
     );
   }
 }
-
 
 class _DashedDivider extends StatelessWidget {
   const _DashedDivider();

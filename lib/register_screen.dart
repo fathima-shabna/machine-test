@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'controllers/booking_controller.dart';
 import 'booking_receipt_screen.dart';
+import 'models/booking_details.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -27,6 +28,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _balanceController = TextEditingController(
     text: '0',
   );
+  final TextEditingController _totalController = TextEditingController(
+    text: '0',
+  );
   final TextEditingController _dateController = TextEditingController();
 
   String? _paymentOption = 'Cash';
@@ -43,6 +47,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.initState();
     _dateController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
     _selectedDate = DateTime.now();
+    _discountController.addListener(_updateCalculatedValues);
+    _advanceController.addListener(_updateCalculatedValues);
+  }
+
+  @override
+  void dispose() {
+    _discountController.removeListener(_updateCalculatedValues);
+    _advanceController.removeListener(_updateCalculatedValues);
+    super.dispose();
   }
 
   void _showAddTreatmentDialog(BuildContext context) {
@@ -116,6 +129,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               _bookingController.femaleTreatments.add(
                                 _femaleCount,
                               );
+                              _updateCalculatedValues();
                               Navigator.pop(context);
                             } else {
                               Get.snackbar(
@@ -316,6 +330,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 _bookingController.femaleTreatments.removeAt(
                                   index,
                                 );
+                                _updateCalculatedValues();
                               },
                             );
                           },
@@ -325,10 +340,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(height: 12),
                     _buildAddTreatmentButton(),
                     _buildLabel('Total Amount'),
-                    _buildTextField(
-                      '',
-                      TextEditingController(),
-                    ), // This should be calculated
+                    _buildTextField('', _totalController, readOnly: true),
                     _buildLabel('Discount Amount'),
                     _buildTextField('', _discountController),
                     _buildLabel('Payment Option'),
@@ -336,7 +348,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     _buildLabel('Advance Amount'),
                     _buildTextField('', _advanceController),
                     _buildLabel('Balance Amount'),
-                    _buildTextField('', _balanceController),
+                    _buildTextField('', _balanceController, readOnly: true),
                     _buildLabel('Treatment Date'),
                     _buildDatePickerField(),
                     _buildLabel('Treatment Time'),
@@ -400,6 +412,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  void _updateCalculatedValues() {
+    double total = 0;
+    for (int i = 0; i < _bookingController.selectedTreatments.length; i++) {
+      final tId = _bookingController.selectedTreatments[i];
+      final treatment = _bookingController.treatments.firstWhere(
+        (t) => t.id == tId,
+      );
+      final price = double.tryParse(treatment.price) ?? 0.0;
+      final patientCount =
+          _bookingController.maleTreatments[i] +
+          _bookingController.femaleTreatments[i];
+      total += price * patientCount;
+    }
+    _totalController.text = total.toStringAsFixed(0);
+
+    double discount = double.tryParse(_discountController.text) ?? 0.0;
+    double advance = double.tryParse(_advanceController.text) ?? 0.0;
+    double balance = total - discount - advance;
+    _balanceController.text = balance.toStringAsFixed(0);
+  }
+
   void _handleSave() async {
     if (_nameController.text.isEmpty ||
         _selectedBranchId == null ||
@@ -417,7 +450,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       payment: _paymentOption ?? 'Cash',
       phone: _phoneController.text,
       address: _addressController.text,
-      total: 0.0, // Should be calculated
+      total: double.tryParse(_totalController.text) ?? 0.0,
       discount: double.tryParse(_discountController.text) ?? 0.0,
       advance: double.tryParse(_advanceController.text) ?? 0.0,
       balance: double.tryParse(_balanceController.text) ?? 0.0,
@@ -431,11 +464,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
       branchId: _selectedBranchId!,
     );
 
-    if (success) {
-      Get.to(() => const BookingReceiptScreen());
-    } else {
-      Get.snackbar('Error', 'Failed to register patient');
-    }
+    final details = BookingDetails(
+      patientName: _nameController.text,
+      address: _addressController.text,
+      phone: _phoneController.text,
+      bookedOn: DateTime.now(),
+      treatmentDate: _selectedDate!,
+      treatmentTime:
+          '$_selectedHour:$_selectedMinute ${_selectedHour.compareTo('12') >= 0 ? 'pm' : 'am'}',
+      treatments: List.generate(_bookingController.selectedTreatments.length, (
+        i,
+      ) {
+        final tId = _bookingController.selectedTreatments[i];
+        final treatment = _bookingController.treatments.firstWhere(
+          (t) => t.id == tId,
+        );
+        final price = double.tryParse(treatment.price) ?? 0.0;
+        final male = _bookingController.maleTreatments[i];
+        final female = _bookingController.femaleTreatments[i];
+        return SelectedTreatmentDetails(
+          name: treatment.name,
+          price: price,
+          male: male,
+          female: female,
+          total: price * (male + female),
+        );
+      }),
+      totalAmount: double.tryParse(_totalController.text) ?? 0.0,
+      discount: double.tryParse(_discountController.text) ?? 0.0,
+      advance: double.tryParse(_advanceController.text) ?? 0.0,
+      balance: double.tryParse(_balanceController.text) ?? 0.0,
+    );
+
+    Get.to(() => BookingReceiptScreen(details: details));
   }
 
   Widget _buildAppBar(BuildContext context) {
@@ -492,10 +553,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     String hint,
     TextEditingController controller, {
     TextInputType keyboardType = TextInputType.text,
+    bool readOnly = false,
   }) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      readOnly: readOnly,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 14),

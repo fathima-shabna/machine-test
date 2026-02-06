@@ -63,11 +63,11 @@ class BookingController extends GetxController {
     try {
       isLoading.value = true;
 
-      final dateStr = DateFormat('dd/MM/yyyy-hh:mm a').format(dateTime);
+      final dateStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(dateTime);
 
       final formData = {
         'name': name,
-        'excecutive': executive,
+        'executive': executive,
         'payment': payment,
         'phone': phone,
         'address': address,
@@ -84,6 +84,7 @@ class BookingController extends GetxController {
       };
 
       final response = await _apiService.post('/PatientUpdate', data: formData);
+      print(response.data);
 
       return response.data['status'] ?? false;
     } catch (e) {
